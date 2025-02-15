@@ -1,9 +1,9 @@
-import { geoLocationBern, getFirstDate } from "./src/http.ts";
+import { fetchGeoLocationBern, fetchRealEstateListings } from "./src/http.ts";
 
 
 
 async function main() {
-  await getFirstDate();
+  await fetchRealEstateListings();
 }
 
 
