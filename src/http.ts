@@ -1,65 +1,84 @@
-import { GeoLocation, GeoLocationSchema, RealEstateListingSchema } from "./types.ts";
-import { parse } from 'npm:node-html-parser@6.1.4';
+import { Listing, ListingSchema } from "./schema.ts";
 
-export async function fetchGeoLocationBern(): Promise<GeoLocation | null> {
-    const resp = await fetch("https://api.immoscout24.ch/geo/locations-by-id?ids=geo-city-bern")
+export async function getListings(startIndex: number, size: number): Promise<Listing | null> {
+    const url = "https://api.immoscout24.ch/search/listings"
+    const body = {
+        query: {
+            availableDate: { from: "2025-02-16" },
+            offerType: "RENT",
+            categories: [
+                "APARTMENT",
+                "MAISONETTE",
+                "DUPLEX",
+                "ATTIC_FLAT",
+                "ROOF_FLAT",
+                "STUDIO",
+                "SINGLE_ROOM",
+                "TERRACE_FLAT",
+                "BACHELOR_FLAT",
+                "LOFT",
+                "ATTIC",
+                "HOUSE",
+                "ROW_HOUSE",
+                "BIFAMILIAR_HOUSE",
+                "TERRACE_HOUSE",
+                "VILLA",
+                "FARM_HOUSE",
+                "CAVE_HOUSE",
+                "CASTLE",
+                "GRANNY_FLAT",
+                "CHALET",
+                "RUSTICO",
+                "SINGLE_HOUSE",
+                "BUNGALOW",
+                "ENGADINE_HOUSE",
+                "HOBBY_ROOM",
+                "CELLAR_COMPARTMENT",
+                "ATTIC_COMPARTMENT",
+                "FURNISHED_FLAT"
+            ],
+            excludeCategories: [],
+            numberOfRooms: {
+                from: 4
+            },
+            monthlyRent: {
+                from: 1000,
+                to: 3000
+            },
+            location: {
+                geoTags: [
+                    "geo-city-bern"
+                ],
+                radius: 10000
+            }
+        },
+        sortBy: "listingType",
+        sortDirection: "desc",
+        from: startIndex,
+        size: size,
+        trackTotalHits: true,
+        fieldset: "srp-list"
+    }
 
-    if (!resp.ok) return null;
+    const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+        },
+        body: JSON.stringify(body)
+    })
 
+    if (!resp.ok) {
+        console.error(`Failed to fetch listings, with status code: ${resp.status} body: ${await resp.text()}`,);
+        return null;
+    }
 
     const data = await resp.json();
-    const parsedData = GeoLocationSchema.safeParse(data["geo-city-bern"]);
+    const parsedData = ListingSchema.safeParse(data);
     if (parsedData.success) {
         return parsedData.data;
     }
 
     console.error(parsedData.error);
     return null;
-}
-
-
-export async function fetchRealEstateListings() {
-    const radius = 10000;
-    const url = `https://www.immoscout24.ch/en/real-estate/rent/city-bern?r=${radius}&nrf=4&pt=3000`
-    const resp = await fetch(url);
-
-    if (!resp.ok) return null;
-
-    const html = await resp.text();
-    const json = extractJsonFromScripts(html);
-
-    console.log(JSON.stringify(json, null, 2));
-
-    const parsedData = RealEstateListingSchema.safeParse(json);
-    if (parsedData.success) {
-        return parsedData.data;
-    }
-
-    console.error(parsedData.error);
-    return null;
-
-}
-
-function extractJsonFromScripts(html: string): JSON {
-    const root = parse(html);
-    const allScripts = root.querySelectorAll('script');
-    console.log(`All scripts: ${allScripts.length}`);
-
-    const result = root.querySelectorAll('script')
-        .filter(script => !script.attributes.src)
-        .filter(script => script.toString().includes('window.__INITIAL_STATE__'));
-
-    console.log(`Result len: ${result.length}`);
-
-    if (result.length > 1) {
-        console.error('More than one script found');
-        throw new Error('More than one script found');
-    } else if (result.length === 0) {
-        console.error('No script found');
-        throw new Error('No script found');
-    }
-    const object = result[0].innerText.replace('window.__INITIAL_STATE__=', '');
-    const json = JSON.parse(object);
-
-    return json
 }
